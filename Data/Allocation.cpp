@@ -17,13 +17,9 @@
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
 
-#include <Format/Allocation.hpp>
+#include <Data/Allocation.hpp>
 
-//===------------------------------------------------------------------------===
-// • namespace format
-//===------------------------------------------------------------------------===
-
-namespace format
+namespace data
 {
 
 //===------------------------------------------------------------------------===
@@ -33,7 +29,7 @@ namespace format
 namespace detail
 {
 
-uint32_t get_allocation_length(uint32_t requested_contents_size) noexcept
+constexpr uint32_t get_allocation_length(uint32_t requested_contents_size) noexcept
 {
     return atom_header_length + aligned_size(requested_contents_size);
 }
@@ -42,7 +38,7 @@ Atom* divide(Atom* atom, uint32_t slice_length, AtomID identifier) noexcept
 {
     // • First create the tail region fully within the region to divide
     //
-    auto tail = unchecked::offset_by(atom, slice_length);
+    auto tail = detail::offset_by(atom, slice_length);
 
     tail->identifier = identifier;
     tail->length     = atom->length - slice_length;
@@ -51,7 +47,7 @@ Atom* divide(Atom* atom, uint32_t slice_length, AtomID identifier) noexcept
 
     // • Link the next atom backwards to the tail
     //
-    unchecked::next(tail)->previous = tail->length;
+    detail::next(tail)->previous = tail->length;
 
     // • Detach the tail
     //
@@ -62,32 +58,30 @@ Atom* divide(Atom* atom, uint32_t slice_length, AtomID identifier) noexcept
 
 void merge_next(Atom* atom) noexcept
 {
-    atom->length                   += unchecked::next(atom)->length;
-    unchecked::next(atom)->previous = atom->length;
+    atom->length                += detail::next(atom)->length;
+    detail::next(atom)->previous = atom->length;
 }
 
-AtomIterator reserve_new(AtomIterator dataIt, uint32_t allocation_length) noexcept(false)
+Atom* reserve_new(Atom* data, uint32_t allocation_length, AtomID identifier) noexcept(false)
 {
-    assert( AtomID::data == dataIt->identifier );
-
-    for ( auto atomIt = std::next(dataIt); !atomIt.is_end(); ++atomIt )
+    for ( auto atom = next(data); !is_end(atom); atom = next(atom) )
     {
-        if ( AtomID::free != atomIt->identifier || atomIt->length < allocation_length ) {
+        if ( AtomID::free != atom->identifier || atom->length < allocation_length ) {
             continue;
         }
 
-        if ( allocation_length < atomIt->length )
+        if ( allocation_length < atom->length )
         {
             // • Divide the free region into two sub-regions (ignore the second)
             //
-            divide( atomIt.get(), allocation_length, AtomID::free );
+            divide( atom, allocation_length, AtomID::free );
         }
 
         // • Reclaim the beginning of the region as the new allocation
         //
-        atomIt->identifier = AtomID::allocation;
+        atom->identifier = identifier;
 
-        return atomIt;
+        return atom;
     }
 
     // • For now we want to stop if this occurs because it means we didn't allocate
@@ -98,57 +92,62 @@ AtomIterator reserve_new(AtomIterator dataIt, uint32_t allocation_length) noexce
     throw false;
 }
 
-AtomIterator reserve( AtomIterator dataIt, uint32_t requested_contents_size ) noexcept(false)
+Atom* reserve(Atom* data, uint32_t requested_contents_size, AtomID identifier) noexcept(false)
 {
-    return reserve_new( dataIt, get_allocation_length(requested_contents_size) );
+    assert( AtomID::data == data->identifier );
+    assert( AtomID::vector == identifier );
+
+    return reserve_new( data, get_allocation_length(requested_contents_size), identifier );
 }
 
-AtomIterator reserve( AtomIterator dataIt, AtomIterator currAllocIt,
-                      uint32_t requested_contents_size ) noexcept(false)
+Atom* reserve(Atom* data, Atom* curr_alloc, uint32_t requested_contents_size) noexcept(false)
 {
+    assert( AtomID::data == data->identifier );
+    assert( AtomID::vector == curr_alloc->identifier );
+
     const auto allocation_length = get_allocation_length(requested_contents_size);
 
-    if ( allocation_length == currAllocIt->length )
+    if ( allocation_length == curr_alloc->length )
     {
         // • Keeping the same allocation size, perhaps unintended but technically not wrong
         //
-        return currAllocIt;
+        return curr_alloc;
     }
-    else if ( allocation_length < currAllocIt->length )
+    else if ( allocation_length < curr_alloc->length )
     {
         // • Smaller allocation - free the tail
         //
-        auto free = divide(currAllocIt.get(), allocation_length, AtomID::free);
+        auto free = divide(curr_alloc, allocation_length, AtomID::free);
 
-        if ( AtomID::free == unchecked::next(free)->identifier )
+        if ( AtomID::free == next(free)->identifier )
         {
             merge_next(free);
         }
 
-        return currAllocIt;
+        return curr_alloc;
     }
     else
     {
         // • Larger allocation - first try to extend into the immediately following
         //      region if it's a free region of sufficient length
         //
-        const auto extend_length = allocation_length - currAllocIt->length;
+        const auto extend_length = allocation_length - curr_alloc->length;
 
-        if ( auto extendIt = std::next(currAllocIt) ;
-            !extendIt.is_end()
-            && AtomID::free == extendIt->identifier
-            && extend_length <= extendIt->length )
+        if ( auto extend = next(curr_alloc) ;
+            !is_end(extend)
+            && AtomID::free == extend->identifier
+            && extend_length <= extend->length )
         {
-            if ( extend_length <= extendIt->length )
+            if ( extend_length <= extend->length )
             {
-                divide(extendIt.get(), extend_length, AtomID::free);
+                divide(extend, extend_length, AtomID::free);
             }
 
             // • Acquire the free region
             //
-            merge_next( currAllocIt.get() );
+            merge_next(curr_alloc);
 
-            return currAllocIt;
+            return curr_alloc;
         }
 
         // TODO: Try to claim all or part of the preceding region if it's free
@@ -156,17 +155,14 @@ AtomIterator reserve( AtomIterator dataIt, AtomIterator currAllocIt,
         // • Finally, perform a new full allocation, copy the existing contents,
         //      and free the previous allocation
         //
-        auto newAllocIt = reserve_new(dataIt, allocation_length);
+        auto new_alloc = reserve_new(data, allocation_length, curr_alloc->identifier);
 
-        if ( newAllocIt.is_end() ) {
-            return newAllocIt;
-        }
+        std::memcpy( contents<uint8_t>(new_alloc), contents<uint8_t>(curr_alloc),
+                     contents_size(curr_alloc) );
 
-        memcpy( newAllocIt.contents(), currAllocIt.contents(), currAllocIt.contents_size() );
+        free(curr_alloc);
 
-        free(currAllocIt);
-
-        return newAllocIt;
+        return new_alloc;
     }
 
     // • For now we want to stop if this occurs because it means we didn't allocate
@@ -177,35 +173,35 @@ AtomIterator reserve( AtomIterator dataIt, AtomIterator currAllocIt,
     throw false;
 }
 
-AtomIterator free(AtomIterator deallocIt) noexcept
+Atom* free(Atom* dealloc) noexcept
 {
-    assert( AtomID::allocation == deallocIt->identifier );
+    assert( AtomID::vector == dealloc->identifier );
 
     // • Convert to free region of the same length
     //
-    deallocIt->identifier = AtomID::free;
+    dealloc->identifier = AtomID::free;
 
     // • First try to coalesce with the immediately following region if free
     //
-    if ( AtomID::free == std::next(deallocIt)->identifier )
+    if ( AtomID::free == next(dealloc)->identifier )
     {
-        merge_next( deallocIt.get() );
+        merge_next(dealloc);
     }
 
     // • Then try to coalesce with the immediately preceding region if free
     //
-    auto prevIt = std::prev(deallocIt);
+    auto prev = previous(dealloc);
 
-    if ( AtomID::free == prevIt->identifier )
+    if ( AtomID::free == prev->identifier )
     {
-        merge_next( prevIt.get() );
+        merge_next(prev);
 
-        return prevIt;
+        return prev;
     }
 
-    return deallocIt;
+    return dealloc;
 }
 
 } // namespace detail
 
-} // namespace format
+} // namespace data

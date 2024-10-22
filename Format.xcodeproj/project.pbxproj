@@ -7,12 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		E18971932B6D919300484DE5 /* Atom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E18971922B6D919300484DE5 /* Atom.cpp */; };
-		E18971962B6DC65800484DE5 /* Allocation.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E18971942B6DC65800484DE5 /* Allocation.cpp */; };
 		E18971982B6DCB5500484DE5 /* TestAtom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E18971972B6DCB5500484DE5 /* TestAtom.cpp */; };
 		E189719A2B6DCBA000484DE5 /* TestAllocation.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E18971992B6DCBA000484DE5 /* TestAllocation.cpp */; };
 		E189719F2B6DD52A00484DE5 /* TextVector.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E189719E2B6DD52A00484DE5 /* TextVector.cpp */; };
 		E1DE444C2B6D7DE7001CB494 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E1DE444B2B6D7DE7001CB494 /* main.cpp */; };
+		E1E8B1012CC82560000B135E /* Allocation.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E1E8B0F72CC82560000B135E /* Allocation.cpp */; };
+		E1E8B1022CC82560000B135E /* Atom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E1E8B0F92CC82560000B135E /* Atom.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -30,17 +30,22 @@
 /* Begin PBXFileReference section */
 		E1260CF42CA35A8900DA490B /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
 		E1260CF52CA35A8900DA490B /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
-		E18971902B6D859700484DE5 /* Layout.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Layout.hpp; sourceTree = "<group>"; };
-		E18971912B6D869A00484DE5 /* Atom.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Atom.hpp; sourceTree = "<group>"; };
-		E18971922B6D919300484DE5 /* Atom.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Atom.cpp; sourceTree = "<group>"; };
-		E18971942B6DC65800484DE5 /* Allocation.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Allocation.cpp; sourceTree = "<group>"; };
-		E18971952B6DC65800484DE5 /* Allocation.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Allocation.hpp; sourceTree = "<group>"; };
 		E18971972B6DCB5500484DE5 /* TestAtom.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = TestAtom.cpp; sourceTree = "<group>"; };
 		E18971992B6DCBA000484DE5 /* TestAllocation.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = TestAllocation.cpp; sourceTree = "<group>"; };
-		E189719C2B6DCC3500484DE5 /* Vector.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Vector.hpp; sourceTree = "<group>"; };
 		E189719E2B6DD52A00484DE5 /* TextVector.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = TextVector.cpp; sourceTree = "<group>"; };
 		E1DE44482B6D7DE7001CB494 /* Format */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Format; sourceTree = BUILT_PRODUCTS_DIR; };
 		E1DE444B2B6D7DE7001CB494 /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
+		E1E8B0F62CC82560000B135E /* Allocation.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Allocation.hpp; sourceTree = "<group>"; };
+		E1E8B0F72CC82560000B135E /* Allocation.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Allocation.cpp; sourceTree = "<group>"; };
+		E1E8B0F82CC82560000B135E /* Atom.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Atom.hpp; sourceTree = "<group>"; };
+		E1E8B0F92CC82560000B135E /* Atom.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Atom.cpp; sourceTree = "<group>"; };
+		E1E8B0FA2CC82560000B135E /* Layout.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Layout.hpp; sourceTree = "<group>"; };
+		E1E8B0FB2CC82560000B135E /* Layout-Host.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = "Layout-Host.hpp"; sourceTree = "<group>"; };
+		E1E8B0FC2CC82560000B135E /* Layout-Metal.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = "Layout-Metal.hpp"; sourceTree = "<group>"; };
+		E1E8B0FD2CC82560000B135E /* Vector.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Vector.hpp; sourceTree = "<group>"; };
+		E1E8B0FE2CC82560000B135E /* Vector-Host.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = "Vector-Host.hpp"; sourceTree = "<group>"; };
+		E1E8B0FF2CC82560000B135E /* Vector-Metal.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = "Vector-Metal.hpp"; sourceTree = "<group>"; };
+		E1E8B1002CC82560000B135E /* VectorRef.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = VectorRef.hpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -59,7 +64,7 @@
 			children = (
 				E1260CF42CA35A8900DA490B /* LICENSE */,
 				E1260CF52CA35A8900DA490B /* README.md */,
-				E1DE444A2B6D7DE7001CB494 /* Format */,
+				E1E8B0F52CC82538000B135E /* Data */,
 				E1DE44522B6D7DEF001CB494 /* TestFormat */,
 				E1DE44492B6D7DE7001CB494 /* Products */,
 			);
@@ -73,19 +78,6 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		E1DE444A2B6D7DE7001CB494 /* Format */ = {
-			isa = PBXGroup;
-			children = (
-				E18971902B6D859700484DE5 /* Layout.hpp */,
-				E18971912B6D869A00484DE5 /* Atom.hpp */,
-				E18971922B6D919300484DE5 /* Atom.cpp */,
-				E18971952B6DC65800484DE5 /* Allocation.hpp */,
-				E18971942B6DC65800484DE5 /* Allocation.cpp */,
-				E189719C2B6DCC3500484DE5 /* Vector.hpp */,
-			);
-			path = Format;
-			sourceTree = "<group>";
-		};
 		E1DE44522B6D7DEF001CB494 /* TestFormat */ = {
 			isa = PBXGroup;
 			children = (
@@ -95,6 +87,24 @@
 				E1DE444B2B6D7DE7001CB494 /* main.cpp */,
 			);
 			path = TestFormat;
+			sourceTree = "<group>";
+		};
+		E1E8B0F52CC82538000B135E /* Data */ = {
+			isa = PBXGroup;
+			children = (
+				E1E8B0FB2CC82560000B135E /* Layout-Host.hpp */,
+				E1E8B0FC2CC82560000B135E /* Layout-Metal.hpp */,
+				E1E8B0FA2CC82560000B135E /* Layout.hpp */,
+				E1E8B0F82CC82560000B135E /* Atom.hpp */,
+				E1E8B0F92CC82560000B135E /* Atom.cpp */,
+				E1E8B0F62CC82560000B135E /* Allocation.hpp */,
+				E1E8B0F72CC82560000B135E /* Allocation.cpp */,
+				E1E8B1002CC82560000B135E /* VectorRef.hpp */,
+				E1E8B0FE2CC82560000B135E /* Vector-Host.hpp */,
+				E1E8B0FF2CC82560000B135E /* Vector-Metal.hpp */,
+				E1E8B0FD2CC82560000B135E /* Vector.hpp */,
+			);
+			path = Data;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -124,7 +134,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastUpgradeCheck = 1520;
+				LastUpgradeCheck = 1600;
 				TargetAttributes = {
 					E1DE44472B6D7DE7001CB494 = {
 						CreatedOnToolsVersion = 15.2;
@@ -154,10 +164,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				E18971932B6D919300484DE5 /* Atom.cpp in Sources */,
-				E18971962B6DC65800484DE5 /* Allocation.cpp in Sources */,
 				E189719F2B6DD52A00484DE5 /* TextVector.cpp in Sources */,
 				E18971982B6DCB5500484DE5 /* TestAtom.cpp in Sources */,
+				E1E8B1012CC82560000B135E /* Allocation.cpp in Sources */,
+				E1E8B1022CC82560000B135E /* Atom.cpp in Sources */,
 				E1DE444C2B6D7DE7001CB494 /* main.cpp in Sources */,
 				E189719A2B6DCBA000484DE5 /* TestAllocation.cpp in Sources */,
 			);
@@ -200,6 +210,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -267,6 +278,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -297,6 +309,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 2YGKY2CNSZ;
 				ENABLE_HARDENED_RUNTIME = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -307,6 +320,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 2YGKY2CNSZ;
 				ENABLE_HARDENED_RUNTIME = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";

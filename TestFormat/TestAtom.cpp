@@ -19,16 +19,17 @@
 
 #include <gmock/gmock.h>
 
-#include <Format/Atom.hpp>
+#include <Data/Atom.hpp>
 
 using namespace ::testing;
-using namespace ::format;
+using namespace ::data;
 
 //===------------------------------------------------------------------------===
 //
 // • Atom tests
 //
 //===------------------------------------------------------------------------===
+
 
 TEST( atom, static_data )
 {
@@ -40,7 +41,7 @@ TEST( atom, static_data )
             16,0,0,0,   'a','t','a','d',     0,0,0,0,   0,0,0,0,
             32,0,0,0,   'e','e','r','f',    16,0,0,0,   0,0,0,0,
                 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
-            48,0,0,0,   'c','o','l','a',    32,0,0,0,   0,0,0,0,
+            48,0,0,0,   'r','t','c','v',    32,0,0,0,   0,0,0,0,
                 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
                 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
             16,0,0,0,   ' ','d','n','e',    48,0,0,0,   0,0,0,0,
@@ -50,42 +51,42 @@ TEST( atom, static_data )
 
         EXPECT_TRUE( validate_layout(contents.data(), contents_length) );
 
-        auto dataIt = data_iterator(contents.data(), contents_length);
+        const auto data = reinterpret_cast<const Atom*>( contents.data() );
 
-        EXPECT_EQ( dataIt->identifier, AtomID::data );
-        EXPECT_EQ( dataIt->length, 16 );
-        EXPECT_TRUE( dataIt.empty() );
+        EXPECT_EQ( data->identifier, AtomID::data );
+        EXPECT_EQ( data->length, 16 );
+        EXPECT_TRUE( detail::empty(data) );
 
-        auto freeIt = std::next(dataIt);
+        const auto free = detail::next(data);
 
-        EXPECT_EQ( freeIt->identifier, AtomID::free );
-        EXPECT_EQ( freeIt->length, 32 );
-        EXPECT_EQ( freeIt->previous, dataIt->length );
-        EXPECT_FALSE( freeIt.empty() );
+        EXPECT_EQ( free->identifier, AtomID::free );
+        EXPECT_EQ( free->length, 32 );
+        EXPECT_EQ( free->previous, data->length );
+        EXPECT_FALSE( detail::empty(free) );
 
-        auto allocIt = std::next(freeIt);
+        const auto vctr = detail::next(free);
 
-        EXPECT_EQ( allocIt->identifier, AtomID::allocation );
-        EXPECT_EQ( allocIt->length, 48 );
-        EXPECT_EQ( allocIt->previous, 32 );
-        EXPECT_EQ( allocIt->previous, freeIt->length );
-        EXPECT_FALSE( allocIt.empty() );
+        EXPECT_EQ( vctr->identifier, AtomID::vector );
+        EXPECT_EQ( vctr->length, 48 );
+        EXPECT_EQ( vctr->previous, 32 );
+        EXPECT_EQ( vctr->previous, free->length );
+        EXPECT_FALSE( detail::empty(vctr) );
 
-        auto endIt = end_iterator(contents.data(), contents_length);
+        const auto end = end_atom( contents.data(), contents_length );
 
-        EXPECT_EQ( std::next(allocIt), endIt );
-        EXPECT_EQ( endIt->identifier, AtomID::end );
-        EXPECT_EQ( endIt->length, atom_header_length );
-        EXPECT_EQ( endIt->previous, allocIt->length );
-        EXPECT_TRUE( endIt.empty() );
+        EXPECT_EQ( detail::next(vctr), end );
+        EXPECT_EQ( end->identifier, AtomID::end );
+        EXPECT_EQ( end->length, atom_header_length );
+        EXPECT_EQ( end->previous, vctr->length );
+        EXPECT_TRUE( detail::empty(end) );
 
-        EXPECT_EQ( dataIt, std::prev(freeIt) );
-        EXPECT_EQ( freeIt, std::prev(allocIt) );
-        EXPECT_EQ( allocIt, std::prev(endIt) );
+        EXPECT_EQ( data, detail::previous(free) );
+        EXPECT_EQ( free, detail::previous(vctr) );
+        EXPECT_EQ( vctr, detail::previous(end) );
     }
     catch ( ... )
     {
-        EXPECT_TRUE( false );
+        FAIL();
     }
 }
 
@@ -96,35 +97,74 @@ TEST( atom, default_layout )
         auto contents_length = uint32_t{ 1024 };
         auto contents        = std::make_unique<uint8_t[]>(contents_length);
 
-        auto dataIt = prepare_layout(contents.get(), 0, contents_length);
+        const auto data = format( contents.get(), contents_length );
 
         EXPECT_TRUE( validate_layout(contents.get(), contents_length) );
 
-        EXPECT_EQ( dataIt->identifier, AtomID::data );
-        EXPECT_EQ( dataIt->length, 16 );
-        EXPECT_TRUE( dataIt.empty() );
+        EXPECT_EQ( data->identifier, AtomID::data );
+        EXPECT_EQ( data->length, 16 );
+        EXPECT_TRUE( detail::empty(data) );
 
-        auto freeIt = std::next(dataIt);
+        const auto free = detail::next(data);
 
-        EXPECT_EQ( freeIt->identifier, AtomID::free );
-        EXPECT_EQ( freeIt->length, contents_length - 2*atom_header_length );
-        EXPECT_EQ( freeIt->previous, dataIt->length );
-        EXPECT_FALSE( freeIt.empty() );
+        EXPECT_EQ( free->identifier, AtomID::free );
+        EXPECT_EQ( free->length, contents_length - 2*atom_header_length );
+        EXPECT_EQ( free->previous, data->length );
+        EXPECT_FALSE( detail::empty(free) );
 
-        auto endIt = end_iterator(contents.get(), contents_length);
+        const auto end = end_atom( contents.get(), contents_length );
 
-        EXPECT_EQ( std::next(freeIt), endIt );
-        EXPECT_EQ( endIt->identifier, AtomID::end );
-        EXPECT_EQ( endIt->length, atom_header_length );
-        EXPECT_EQ( endIt->previous, freeIt->length );
-        EXPECT_TRUE( endIt.empty() );
+        EXPECT_EQ( detail::next(free), end );
+        EXPECT_EQ( end->identifier, AtomID::end );
+        EXPECT_EQ( end->length, atom_header_length );
+        EXPECT_EQ( end->previous, free->length );
+        EXPECT_TRUE( detail::empty(end) );
 
-        EXPECT_EQ( dataIt, std::prev(freeIt) );
-        EXPECT_EQ( freeIt, std::prev(endIt) );
+        EXPECT_EQ( data, detail::previous(free) );
+        EXPECT_EQ( free, detail::previous(end) );
     }
     catch ( ... )
     {
-        EXPECT_TRUE( false );
+        FAIL();
+    }
+}
+
+TEST( atom, non_empty_data_layout )
+{
+    try
+    {
+        auto contents_length = uint32_t{ 1024 };
+        auto contents        = std::make_unique<uint8_t[]>(contents_length);
+
+        const auto data = format( contents.get(), contents_length, 27 );
+
+        EXPECT_TRUE( validate_layout(contents.get(), contents_length) );
+
+        EXPECT_EQ( data->identifier, AtomID::data );
+        EXPECT_EQ( data->length, 48 );
+        EXPECT_FALSE( detail::empty(data) );
+
+        const auto free = detail::next(data);
+
+        EXPECT_EQ( free->identifier, AtomID::free );
+        EXPECT_EQ( free->length, contents_length - 2*atom_header_length - 32 );
+        EXPECT_EQ( free->previous, data->length );
+        EXPECT_FALSE( detail::empty(free) );
+
+        const auto end = end_atom( contents.get(), contents_length );
+
+        EXPECT_EQ( detail::next(free), end );
+        EXPECT_EQ( end->identifier, AtomID::end );
+        EXPECT_EQ( end->length, atom_header_length );
+        EXPECT_EQ( end->previous, free->length );
+        EXPECT_TRUE( detail::empty(end) );
+
+        EXPECT_EQ( data, detail::previous(free) );
+        EXPECT_EQ( free, detail::previous(end) );
+    }
+    catch ( ... )
+    {
+        FAIL();
     }
 }
 
@@ -135,26 +175,26 @@ TEST( atom, minimum_layout )
         auto contents_length = uint32_t{ 2*atom_header_length };
         auto contents        = std::make_unique<uint8_t[]>(contents_length);
 
-        auto dataIt = prepare_layout(contents.get(), 0, contents_length);
+        const auto data = format( contents.get(), contents_length );
 
         EXPECT_TRUE( validate_layout(contents.get(), contents_length) );
 
-        EXPECT_EQ( dataIt->identifier, AtomID::data );
-        EXPECT_EQ( dataIt->length, 16 );
-        EXPECT_TRUE( dataIt.empty() );
+        EXPECT_EQ( data->identifier, AtomID::data );
+        EXPECT_EQ( data->length, 16 );
+        EXPECT_TRUE( detail::empty(data) );
 
-        auto endIt = end_iterator(contents.get(), contents_length);
+        const auto end = end_atom( contents.get(), contents_length );
 
-        EXPECT_EQ( std::next(dataIt), endIt );
-        EXPECT_EQ( endIt->identifier, AtomID::end );
-        EXPECT_EQ( endIt->length, atom_header_length );
-        EXPECT_EQ( endIt->previous, dataIt->length );
-        EXPECT_TRUE( endIt.empty() );
+        EXPECT_EQ( detail::next(data), end );
+        EXPECT_EQ( end->identifier, AtomID::end );
+        EXPECT_EQ( end->length, atom_header_length );
+        EXPECT_EQ( end->previous, data->length );
+        EXPECT_TRUE( detail::empty(end) );
 
-        EXPECT_EQ( dataIt, std::prev(endIt) );
+        EXPECT_EQ( data, detail::previous(end) );
     }
     catch ( ... )
     {
-        EXPECT_TRUE( false );
+        FAIL();
     }
 }

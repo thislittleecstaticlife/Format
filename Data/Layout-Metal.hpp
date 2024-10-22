@@ -1,5 +1,5 @@
 //
-//  Allocation.hpp
+//  Layout-Host.hpp
 //
 //  Copyright © 2024 Robert Guequierre
 //
@@ -19,29 +19,39 @@
 
 #pragma once
 
-#include <Format/Atom.hpp>
-
 //===------------------------------------------------------------------------===
-// • namespace format
+// • namespace data
 //===------------------------------------------------------------------------===
 
-namespace format
+namespace data
 {
 
 //===------------------------------------------------------------------------===
-// • Allocation primitives
+// • Concept names (Metal)
 //===------------------------------------------------------------------------===
 
-namespace detail
+#define TRIVIAL_LAYOUT typename
+
+//===------------------------------------------------------------------------===
+// • Memory Layout Utilities (Metal)
+//===------------------------------------------------------------------------===
+
+template <TRIVIAL_LAYOUT Type_, TRIVIAL_LAYOUT Root_>
+constant Type_* offset_by(constant Root_* root, uint32_t offset)
 {
+    return reinterpret_cast<constant Type_*>(reinterpret_cast<constant uint8_t*>(root) + offset);
+}
 
-AtomIterator reserve( AtomIterator dataIt, uint32_t requested_contents_size ) noexcept(false);
+template <TRIVIAL_LAYOUT Type_, TRIVIAL_LAYOUT Root_>
+const device Type_* offset_by(const device Root_* root, uint32_t offset)
+{
+    return reinterpret_cast<const device Type_*>(reinterpret_cast<const device uint8_t*>(root) + offset);
+}
 
-AtomIterator reserve( AtomIterator dataIt, AtomIterator currAllocIt,
-                      uint32_t requested_contents_size ) noexcept(false);
+template <TRIVIAL_LAYOUT Type_, TRIVIAL_LAYOUT Root_>
+device Type_* offset_by(device Root_* root, uint32_t offset)
+{
+    return reinterpret_cast<device Type_*>(reinterpret_cast<device uint8_t*>(root) + offset);
+}
 
-AtomIterator free(AtomIterator deallocIt) noexcept;
-
-} // namespace detail
-
-} // namespace format
+} // namespace data

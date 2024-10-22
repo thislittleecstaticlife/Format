@@ -19,10 +19,10 @@
 
 #include <gmock/gmock.h>
 
-#include <Format/Allocation.hpp>
+#include <Data/Allocation.hpp>
 
 using namespace ::testing;
-using namespace ::format;
+using namespace ::data;
 
 //===------------------------------------------------------------------------===
 //
@@ -32,97 +32,68 @@ using namespace ::format;
 
 TEST( allocation, new_reservation )
 {
+
     try
     {
         auto contents_length = uint32_t{ 1024 };
         auto contents        = std::make_unique<uint8_t[]>(contents_length);
-        auto dataIt          = prepare_layout(contents.get(), 0, contents_length);
+        auto data            = format( contents.get(), contents_length );
 
         EXPECT_TRUE( validate_layout(contents.get(), contents_length) );
 
-        auto allocIt = detail::reserve(dataIt, 34);
-
-        EXPECT_TRUE( validate_layout(contents.get(), contents_length) );
-
-        EXPECT_EQ( allocIt->identifier, AtomID::allocation );
-        EXPECT_EQ( allocIt.offset(), atom_header_length );
-        EXPECT_EQ( allocIt.contents_size(), 48 ); // aligned_size(34) = 48
-        EXPECT_EQ( std::next(dataIt), allocIt );
-
-        auto alloc2It = detail::reserve(dataIt, 512);
-
-        EXPECT_TRUE( validate_layout(contents.get(), contents_length) );
-
-        EXPECT_EQ( alloc2It->identifier, AtomID::allocation );
-        EXPECT_EQ( alloc2It->length, 528 );
-        EXPECT_EQ( alloc2It.offset(), 80 );
-        EXPECT_EQ( alloc2It.contents_size(), 512 );
-
-        // • Test iterators
+        // • First
         //
-        {
-            auto testAlloc1It = std::next(dataIt);
-
-            EXPECT_EQ( testAlloc1It->identifier, AtomID::allocation );
-            EXPECT_EQ( testAlloc1It, allocIt );
-
-            auto testAlloc2It = std::next(testAlloc1It);
-
-            EXPECT_EQ( testAlloc2It->identifier, AtomID::allocation );
-            EXPECT_EQ( testAlloc2It, alloc2It );
-
-            auto freeIt = std::next(testAlloc2It);
-
-            EXPECT_EQ( freeIt->identifier, AtomID::free );
-            EXPECT_TRUE( std::next(freeIt).is_end() );
-        }
-
-        // • Deallocation
-        //
-        detail::free(allocIt);
+        auto alloc1 = detail::reserve(data, 34, AtomID::vector);
 
         EXPECT_TRUE( validate_layout(contents.get(), contents_length) );
 
-        // • Test iterators
-        {
-            auto free1It = std::next(dataIt);
+        EXPECT_EQ( alloc1->identifier, AtomID::vector );
+        EXPECT_EQ( detail::distance(data, alloc1), atom_header_length );
+        EXPECT_EQ( detail::contents_size(alloc1), 48 ); // aligned_size(34) = 48
+        EXPECT_EQ( detail::next(data), alloc1 );
+        EXPECT_EQ( detail::next(alloc1)->identifier, AtomID::free );
 
-            EXPECT_EQ( free1It->identifier, AtomID::free );
-            EXPECT_EQ( free1It->length, 64 );
-            EXPECT_EQ( free1It->previous, dataIt->length );
+        // • Second
+        //
+        auto alloc2 = detail::reserve(data, 512, AtomID::vector);
 
-            auto alloc2It = std::next(free1It);
+        EXPECT_TRUE( validate_layout(contents.get(), contents_length) );
 
-            EXPECT_EQ( alloc2It->identifier, AtomID::allocation );
-            EXPECT_EQ( alloc2It->length, 528 );
-            EXPECT_EQ( alloc2It->previous,   64 );
+        EXPECT_EQ( alloc2->identifier, AtomID::vector );
+        EXPECT_EQ( alloc2->length, 528 );
+        EXPECT_EQ( detail::distance(data, alloc2), 80 );
+        EXPECT_EQ( detail::contents_size(alloc2), 512 );
+        EXPECT_EQ( detail::next(alloc1), alloc2 );
+        EXPECT_EQ( detail::next(alloc2)->identifier, AtomID::free );
 
-            auto free2It = std::next(alloc2It);
+        // • Deallocate first
+        //
+        auto free1 = detail::free(alloc1);
 
-            EXPECT_EQ( free2It->identifier, AtomID::free );
-            EXPECT_EQ( free2It->previous, 528 );
-            EXPECT_TRUE( std::next(free2It).is_end() );
-        }
+        EXPECT_TRUE( validate_layout(contents.get(), contents_length) );
+
+        EXPECT_EQ( detail::next(data), free1 );
+        EXPECT_EQ( free1->identifier, AtomID::free );
+        EXPECT_EQ( free1->length, 64 );
+        EXPECT_EQ( data, detail::previous(free1) );
+
+        EXPECT_EQ( detail::next(free1), alloc2 );
+        EXPECT_EQ( free1, detail::previous(alloc2) );
 
         // • Deallocate second
         //
-        detail::free(alloc2It);
+        auto free2 = detail::free(alloc2);
 
         EXPECT_TRUE( validate_layout(contents.get(), contents_length) );
 
-        // • Test iterators
-        {
-            auto coalescedFreeIt = std::next(dataIt);
+        EXPECT_EQ( detail::next(data), free2 );
+        EXPECT_EQ( data, detail::previous(free2) );
 
-            EXPECT_EQ( coalescedFreeIt->identifier, AtomID::free );
-            EXPECT_EQ( coalescedFreeIt->length, contents_length - 2*atom_header_length );
-            EXPECT_EQ( coalescedFreeIt->previous, dataIt->length );
-            EXPECT_TRUE( std::next(coalescedFreeIt).is_end() );
-        }
+        EXPECT_EQ( detail::next(free2)->identifier, AtomID::end );
     }
     catch ( ... )
     {
-        EXPECT_TRUE( false );
+        FAIL();
     }
 }
 
@@ -132,72 +103,73 @@ TEST( allocation, reallocation )
     {
         auto contents_length = uint32_t{ 1024 };
         auto contents        = std::make_unique<uint8_t[]>(contents_length);
-        auto dataIt          = prepare_layout(contents.get(), 0, contents_length);
+        auto data            = format( contents.get(), contents_length );
 
         EXPECT_TRUE( validate_layout(contents.get(), contents_length) );
 
         // • First reservation
         //
-        auto allocIt = detail::reserve(dataIt, 34);
+        auto alloc1 = detail::reserve(data, 34, AtomID::vector);
 
         EXPECT_TRUE( validate_layout(contents.get(), contents_length) );
 
-        EXPECT_EQ( allocIt->length,  64 );
-        EXPECT_EQ( allocIt.offset(), 16 );
-        EXPECT_EQ( allocIt.contents_size(), 48 );
+        EXPECT_EQ( alloc1->length,  64 );
+        EXPECT_EQ( detail::distance(data, alloc1), 16 );
+        EXPECT_EQ( detail::contents_size(alloc1), 48 );
 
         // • Second reservation
         //
-        auto alloc2It = detail::reserve(dataIt, 512);
+        auto alloc2 = detail::reserve(data, 512, AtomID::vector);
 
         EXPECT_TRUE( validate_layout(contents.get(), contents_length) );
 
-        EXPECT_EQ( alloc2It->length, 528 );
-        EXPECT_EQ(alloc2It.offset(), 80 );
-        EXPECT_EQ( alloc2It.contents_size(), 512 );
+        EXPECT_EQ( alloc2->length, 528 );
+        EXPECT_EQ( detail::distance(data, alloc2), 80 );
+        EXPECT_EQ( detail::contents_size(alloc2), 512 );
 
         // • Just for coverage, perform a same-size reallocation (no-op)
         //
-        auto sameSizeIt = detail::reserve(dataIt, allocIt, 42);
+        auto same_size = detail::reserve(data, alloc1, 42);
 
-        EXPECT_EQ( sameSizeIt, allocIt );
-        EXPECT_EQ( sameSizeIt.offset(), 16 );
-        EXPECT_EQ( sameSizeIt.contents_size(), 48 );
+        EXPECT_EQ( same_size, alloc1 );
+        EXPECT_EQ( detail::distance(data, same_size), 16 );
+        EXPECT_EQ( detail::contents_size(same_size), 48 );
 
         // • First shrink the second
         //
-        auto shrinkIt = detail::reserve(dataIt, alloc2It, 480);
+        auto shrink2 = detail::reserve(data, alloc2, 480);
 
         EXPECT_TRUE( validate_layout(contents.get(), contents_length) );
 
-        EXPECT_EQ( shrinkIt, alloc2It );
-        EXPECT_EQ( shrinkIt.offset(), 80 );
-        EXPECT_EQ( shrinkIt->length, atom_header_length + 480 );
+        EXPECT_EQ( shrink2, alloc2 );
+        EXPECT_EQ( detail::distance(data, shrink2), 80 );
+        EXPECT_EQ( shrink2->length, atom_header_length + 480 );
 
         // • Reallocation of the second will extend it into the immediately following free space
         //
-        auto realloc2It = detail::reserve(dataIt, alloc2It, 540);
-
-        EXPECT_EQ( realloc2It, alloc2It );
-        EXPECT_EQ( realloc2It.offset(), 80 );
-        EXPECT_EQ( alloc2It.offset(), 80 );
-        EXPECT_EQ( realloc2It->length, atom_header_length + 544 );
-        EXPECT_EQ( alloc2It->length, realloc2It->length );
+        auto realloc2 = detail::reserve(data, alloc2, 540);
 
         EXPECT_TRUE( validate_layout(contents.get(), contents_length) );
+
+        EXPECT_EQ( realloc2, alloc2 );
+        EXPECT_EQ( detail::distance(data, realloc2), 80 );
+        EXPECT_EQ( realloc2->length, atom_header_length + 544 );
+        EXPECT_EQ( alloc2->length, realloc2->length );
 
         // • Reallocation of the first will move it past the second
         //
-        auto reallocIt = detail::reserve(dataIt, allocIt, 120);
+        auto realloc1 = detail::reserve(data, alloc1, 120);
 
         EXPECT_TRUE( validate_layout(contents.get(), contents_length) );
 
-        EXPECT_NE( reallocIt, allocIt );
-        EXPECT_EQ( reallocIt.offset(), 640 );
-        EXPECT_EQ( reallocIt.contents_size(), 128 );
+        EXPECT_NE( realloc1, alloc1 );
+        EXPECT_EQ( detail::distance(data, realloc1), 640 );
+        EXPECT_EQ( detail::contents_size(realloc1), 128 );
+
+        EXPECT_EQ( alloc1->identifier, AtomID::free );
     }
     catch ( ... )
     {
-        EXPECT_TRUE( false );
+        FAIL();
     }
 }

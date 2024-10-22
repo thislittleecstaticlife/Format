@@ -19,10 +19,10 @@
 
 #include <gmock/gmock.h>
 
-#include <Format/Vector.hpp>
+#include <Data/Vector.hpp>
 
 using namespace ::testing;
-using namespace ::format;
+using namespace ::data;
 
 //===------------------------------------------------------------------------===
 //
@@ -36,12 +36,12 @@ TEST( vector, reservation )
     {
         auto contents_length = uint32_t{ 1024 };
         auto contents        = std::make_unique<uint8_t[]>(contents_length);
-        auto dataIt          = prepare_layout(contents.get(), 0, contents_length);
+        auto data            = data::format(contents.get(), contents_length);
 
         EXPECT_TRUE( validate_layout(contents.get(), contents_length) );
 
         auto ref    = VectorRef<int>{ 0 };
-        auto vector = Vector<int>{ dataIt, ref };
+        auto vector = Vector<int>{ ref, data };
 
         EXPECT_EQ( vector.size(), 0 );
         EXPECT_TRUE( vector.empty() );
@@ -50,7 +50,7 @@ TEST( vector, reservation )
 
         ASSERT_NO_THROW( vector.reserve(27) );
 
-        auto expected_capacity = aligned_size(27*sizeof(int)) / sizeof(int);
+        auto expected_capacity = aligned_size<int>(27) / sizeof(int);
 
         EXPECT_EQ( vector.capacity(), expected_capacity );
         EXPECT_EQ( vector.available(), vector.capacity() );
@@ -70,7 +70,7 @@ TEST( vector, reservation )
     }
     catch ( ... )
     {
-        EXPECT_TRUE( false );
+        FAIL();
     }
 }
 
@@ -80,12 +80,12 @@ TEST( vector, push_back )
     {
         auto contents_length = uint32_t{ 1024 };
         auto contents        = std::make_unique<uint8_t[]>(contents_length);
-        auto dataIt          = prepare_layout(contents.get(), 0, contents_length);
+        auto data            = data::format(contents.get(), contents_length);
 
         EXPECT_TRUE( validate_layout(contents.get(), contents_length) );
 
         auto ref    = VectorRef<int>{ };
-        auto vector = Vector<int>{ dataIt, ref };
+        auto vector = Vector<int>{ ref, data };
 
         EXPECT_EQ( vector.size(), 0 );
         EXPECT_TRUE( vector.empty() );
@@ -113,7 +113,7 @@ TEST( vector, push_back )
     }
     catch ( ... )
     {
-        EXPECT_TRUE( false );
+        FAIL();
     }
 }
 
@@ -123,12 +123,12 @@ TEST( vector, assign )
     {
         auto contents_length = uint32_t{ 1024 };
         auto contents        = std::make_unique<uint8_t[]>(contents_length);
-        auto dataIt          = prepare_layout(contents.get(), 0, contents_length);
+        auto data            = data::format(contents.get(), contents_length);
 
         EXPECT_TRUE( validate_layout(contents.get(), contents_length) );
 
         auto ref    = VectorRef<int>{ };
-        auto vector = Vector<int>{ dataIt, ref };
+        auto vector = Vector<int>{ ref, data };
 
         ASSERT_NO_THROW( vector.assign({ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 }) );
 
@@ -184,7 +184,7 @@ TEST( vector, assign )
     }
     catch ( ... )
     {
-        EXPECT_TRUE( false );
+        FAIL();
     }
 }
 
@@ -194,12 +194,12 @@ TEST( vector, insert )
     {
         auto contents_length = uint32_t{ 1024 };
         auto contents        = std::make_unique<uint8_t[]>(contents_length);
-        auto dataIt          = prepare_layout(contents.get(), 0, contents_length);
+        auto data            = data::format(contents.get(), contents_length);
 
         EXPECT_TRUE( validate_layout(contents.get(), contents_length) );
 
         auto ref    = VectorRef<int>{ };
-        auto vector = Vector<int>{ dataIt, ref };
+        auto vector = Vector<int>{ ref, data };
 
         ASSERT_NO_THROW( vector.assign({ 0, 1, 2, 3, 14, 15, 16 }) );
 
@@ -276,6 +276,6 @@ TEST( vector, insert )
     }
     catch ( ... )
     {
-        EXPECT_TRUE( false );
+        FAIL();
     }
 }

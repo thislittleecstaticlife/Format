@@ -1,5 +1,5 @@
 //
-//  Layout.hpp
+//  Layout-Host.hpp
 //
 //  Copyright © 2024 Robert Guequierre
 //
@@ -19,18 +19,14 @@
 
 #pragma once
 
-#if !defined ( __METAL_VERSION__ )
 #include <type_traits>
-#endif
 
 //===------------------------------------------------------------------------===
-// • namespace format
+// • namespace data
 //===------------------------------------------------------------------------===
 
-namespace format
+namespace data
 {
-
-#if !defined ( __METAL_VERSION__ )
 
 //===------------------------------------------------------------------------===
 //
@@ -60,8 +56,42 @@ consteval bool is_trivial_layout(void) noexcept
 }
 
 //===------------------------------------------------------------------------===
+// • Concepts only available on host
+//===------------------------------------------------------------------------===
+
+#define TRIVIAL_LAYOUT data::TrivialLayout
+
+//===------------------------------------------------------------------------===
 // • Alignment (always 16 bytes)
 //===------------------------------------------------------------------------===
+
+enum : uint32_t
+{
+    alignment = 16
+};
+
+//===------------------------------------------------------------------------===
+// • Aligned concept
+//===------------------------------------------------------------------------===
+
+template <class Type_>
+concept Aligned = ( 0 == (alignof(Type_) & 0x0f) );
+
+//===------------------------------------------------------------------------===
+// • is_aligned
+//===------------------------------------------------------------------------===
+
+template <typename Type_>
+consteval bool is_aligned(void) noexcept
+{
+    return false;
+}
+
+template <Aligned Type_>
+consteval bool is_aligned(void) noexcept
+{
+    return true;
+}
 
 constexpr bool is_aligned(uint32_t size_or_offset) noexcept
 {
@@ -74,29 +104,9 @@ constexpr bool is_aligned(const Type_* memory) noexcept
     return 0 == (reinterpret_cast<uintptr_t>(memory) & 0x0f);
 }
 
-constexpr uint32_t aligned_size(uint32_t actual_size) noexcept
-{
-    return (actual_size + 0x0f) & ~0x0f;
-}
-
 //===------------------------------------------------------------------------===
-// • Aligned concept
+// • aligned_size
 //===------------------------------------------------------------------------===
-
-template <class Type_>
-concept Aligned = ( 0 == (alignof(Type_) & 0x0f) );
-
-template <typename Type_>
-consteval bool is_aligned(void) noexcept
-{
-    return false;
-}
-
-template <Aligned Type_>
-consteval bool is_aligned(void) noexcept
-{
-    return true;
-}
 
 template <typename Type_>
 consteval uint32_t aligned_size(void) noexcept
@@ -107,40 +117,67 @@ consteval uint32_t aligned_size(void) noexcept
 template <Aligned Type_>
 consteval uint32_t aligned_size(void) noexcept
 {
-    return static_cast<uint32_t>( sizeof(Type_) );
+    return sizeof(Type_);
 }
 
-//===------------------------------------------------------------------------===
-// • StructuralLayout concept
-//===------------------------------------------------------------------------===
-
-template <typename Data_>
-concept StructuralLayout = ( TrivialLayout<Data_> && Aligned<Data_> );
+constexpr uint32_t aligned_size(uint32_t actual_size) noexcept
+{
+    return (actual_size + 0x0f) & ~0x0f;
+}
 
 template <typename Type_>
-consteval bool is_structural_layout(void) noexcept
+consteval uint32_t aligned_size(uint32_t count) noexcept
 {
-    return false;
-}
-
-template <StructuralLayout Type_>
-consteval bool is_structural_layout(void) noexcept
-{
-    return true;
+    return aligned_size( sizeof(Type_) * count );
 }
 
 //===------------------------------------------------------------------------===
-// • Concepts only available on host
+//
+// • Memory Layout Utilities (Host)
+//
 //===------------------------------------------------------------------------===
 
-#define TRIVIAL_LAYOUT    format::TrivialLayout
-#define STRUCTURAL_LAYOUT format::StructuralLayout
+namespace detail
+{
 
-#else // if defined ( __METAL_VERSION__ )
+template <TrivialLayout Root_, TrivialLayout Type_>
+uint32_t distance(const Root_* root, const Type_* data)
+{
+    return static_cast<uint32_t> (
+                                  reinterpret_cast<const uint8_t*>(data) - reinterpret_cast<const uint8_t*>(root) );
+}
 
-#define TRIVIAL_LAYOUT    typename
-#define STRUCTURAL_LAYOUT typename
+template <TrivialLayout Root_, TrivialLayout Type_>
+uint32_t distance(const void* root, const Type_* data)
+{
+    return static_cast<uint32_t> (
+                                  reinterpret_cast<const uint8_t*>(data) - static_cast<const uint8_t*>(root) );
+}
 
-#endif
+template <TrivialLayout Type_, TrivialLayout Root_>
+const Type_* offset_by(const Root_* root, uint32_t offset)
+{
+    return reinterpret_cast<const Type_*>(reinterpret_cast<const uint8_t*>(root) + offset);
+}
 
-} // namespace format
+template <TrivialLayout Type_>
+const Type_* offset_by(const void* root, uint32_t offset)
+{
+    return reinterpret_cast<const Type_*>(static_cast<const uint8_t*>(root) + offset);
+}
+
+template <TrivialLayout Type_, TrivialLayout Root_>
+Type_* offset_by(Root_* root, uint32_t offset)
+{
+    return reinterpret_cast<Type_*>(reinterpret_cast<uint8_t*>(root) + offset);
+}
+
+template <TrivialLayout Type_>
+Type_* offset_by(void* root, uint32_t offset)
+{
+    return reinterpret_cast<Type_*>(static_cast<uint8_t*>(root) + offset);
+}
+
+} // namespace data::detail
+
+} // namespace data

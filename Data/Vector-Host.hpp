@@ -1,5 +1,5 @@
 //
-//  Vector.hpp
+//  Vector-Host.hpp
 //
 //  Copyright © 2024 Robert Guequierre
 //
@@ -19,46 +19,23 @@
 
 #pragma once
 
-#include <Format/Allocation.hpp>
+#include <Data/VectorRef.hpp>
+#include <Data/Allocation.hpp>
 
 #include <algorithm>
 
 //===------------------------------------------------------------------------===
-// • namespace format
+// • namespace data
 //===------------------------------------------------------------------------===
 
-namespace format
+namespace data
 {
 
 //===------------------------------------------------------------------------===
-//
-// • VectorRef
-//
+// • Verification
 //===------------------------------------------------------------------------===
 
-template <TRIVIAL_LAYOUT Type_>
-struct VectorRef
-{
-    uint32_t offset;    // Offset from the beginning of the Data atom
-    uint32_t count;
-
-    constexpr bool is_null(void) noexcept
-    {
-        return 0 == offset;
-    }
-
-    constexpr bool empty(void) noexcept
-    {
-        return 0 == count;
-    }
-};
-
-static_assert( 8 ==  sizeof(VectorRef<int>), "Unexpected size" );
-static_assert( 4 == alignof(VectorRef<int>), "Unexpected alignment" );
-
-#if !defined ( __METAL_VERSION__ )
-
-static_assert( format::is_trivial_layout<VectorRef<int>>(), "Unexpected layout" );
+static_assert( data::is_trivial_layout<VectorRef<int>>(), "Unexpected layout" );
 
 //===------------------------------------------------------------------------===
 // • VectorRef utilities (Host)
@@ -67,26 +44,46 @@ static_assert( format::is_trivial_layout<VectorRef<int>>(), "Unexpected layout" 
 namespace detail
 {
 
+//===------------------------------------------------------------------------===
+// • VectorRef utilities
+//===------------------------------------------------------------------------===
+
 template <TrivialLayout Type_>
-AtomIterator allocation_header(AtomIterator dataIt, VectorRef<Type_> ref) noexcept(false)
+constexpr bool empty(const VectorRef<Type_>& ref) noexcept
 {
-    if ( !is_aligned(ref.offset) || ref.offset < dataIt->length + atom_header_length ) 
+    return 0 == ref.count;
+}
+
+template <TrivialLayout Type_>
+constexpr bool is_null(const VectorRef<Type_>& ref) noexcept
+{
+    return 0 == ref.offset;
+}
+
+//===------------------------------------------------------------------------===
+// • Vector header offset
+//===------------------------------------------------------------------------===
+
+template <TrivialLayout Type_>
+Atom* allocation_header(const VectorRef<Type_>& ref, Atom* data) noexcept(false)
+{
+    if ( !is_aligned(ref.offset) || ref.offset < 2*atom_header_length )
     {
         assert( false );
         throw false;
     }
 
     auto allocation_offset = ref.offset - atom_header_length;
-    auto allocation        = unchecked::offset_by(dataIt.get(), allocation_offset);
+    auto allocation        = detail::offset_by(data, allocation_offset);
 
-    if ( AtomID::allocation != allocation->identifier
+    if ( AtomID::vector != allocation->identifier
         || allocation->length < atom_header_length + ref.count*sizeof(Type_) )
     {
         assert( false );
         throw false;
     }
 
-    return { allocation, allocation_offset };
+    return allocation;
 }
 
 } // namespace detail
@@ -132,17 +129,17 @@ public:
 
     // • Initialization
     //
-    Vector(AtomIterator dataIt, vector_ref& ref) noexcept(false)
+    Vector(vector_ref& ref, Atom* data) noexcept(false)
         :
-            m_dataIt    { dataIt  },
-            m_ref       { ref     },
-            m_allocation{ nullptr }
+            m_ref { ref     },
+            m_data{ data    },
+            m_vctr{ nullptr }
     {
-        if ( !m_ref.is_null() )
+        if ( !detail::is_null(m_ref) )
         {
-            m_allocation = detail::allocation_header(m_dataIt, m_ref).get();
+            m_vctr = detail::allocation_header(m_ref, m_data);
         }
-        else if ( !m_ref.empty() )
+        else if ( !detail::empty(m_ref) )
         {
             throw false;
         }
@@ -165,12 +162,12 @@ public:
 
     // • Accessors : capacity
     //
-    size_type size(void) const noexcept
+    constexpr size_type size(void) const noexcept
     {
         return m_ref.count;
     }
 
-    difference_type ssize(void) const noexcept
+    constexpr difference_type ssize(void) const noexcept
     {
         return static_cast<difference_type>( size() );
     }
@@ -180,17 +177,17 @@ public:
         return std::numeric_limits<size_type>::max() / sizeof(value_type);
     }
 
-    bool empty(void) const noexcept
+    constexpr bool empty(void) const noexcept
     {
-        return m_ref.empty();
+        return detail::empty(m_ref);
     }
 
-    size_type capacity(void) const noexcept
+    constexpr size_type capacity(void) const noexcept
     {
-        return (nullptr != m_allocation) ? unchecked::capacity<value_type>(m_allocation) : 0;
+        return ( nullptr != m_vctr ) ? detail::contents_size(m_vctr) / sizeof(value_type) : 0;
     }
 
-    size_type available(void) const noexcept
+    constexpr size_type available(void) const noexcept
     {
         return capacity() - size();
     }
@@ -261,62 +258,62 @@ public:
 
     // • Accessors : elements
     //
-    value_type& at(size_type index) noexcept
+    reference at(size_type index) noexcept
     {
         assert( index < m_ref.count );
 
         return data()[index];
     }
 
-    value_type at(size_type index) const noexcept
+    const_reference at(size_type index) const noexcept
     {
         assert( index < m_ref.count );
 
         return data()[index];
     }
 
-    value_type& front(void) noexcept
+    reference front(void) noexcept
     {
         return at(0);
     }
 
-    value_type front(void) const noexcept
+    const_reference front(void) const noexcept
     {
         return at(0);
     }
 
-    value_type& back(void) noexcept
+    reference back(void) noexcept
     {
         assert( !empty() );
 
         return data()[m_ref.count - 1];
     }
 
-    value_type back(void) const noexcept
+    const_reference back(void) const noexcept
     {
         assert( !empty() );
 
         return data()[m_ref.count - 1];
     }
 
-    value_type& operator [] (size_type index) noexcept
+    reference operator [] (size_type index) noexcept
     {
         return at(index);
     }
 
-    value_type operator [] (size_type index) const noexcept
+    const_reference operator [] (size_type index) const noexcept
     {
         return at(index);
     }
 
     pointer data(void) noexcept
     {
-        return (nullptr != m_allocation) ? unchecked::contents<value_type>(m_allocation) : nullptr;
+        return ( nullptr != m_vctr ) ? detail::contents<value_type>(m_vctr) : nullptr;
     }
 
     const_pointer cdata(void) const noexcept
     {
-        return (nullptr != m_allocation) ? unchecked::contents<value_type>(m_allocation) : nullptr;
+        return ( nullptr != m_vctr ) ? detail::contents<value_type>(m_vctr) : nullptr;
     }
 
     const_pointer data(void) const noexcept
@@ -337,11 +334,11 @@ public:
 
         const auto contents_size = static_cast<uint32_t>( sizeof(value_type) * capacity );
 
-        auto allocIt = ( nullptr != m_allocation )
-            ? detail::reserve(m_dataIt, allocation_iterator(), contents_size)
-            : detail::reserve(m_dataIt, contents_size);
+        m_vctr = ( nullptr == m_vctr )
+            ? detail::reserve(m_data, contents_size, AtomID::vector)
+            : detail::reserve(m_data, m_vctr, contents_size);
 
-        update_for(allocIt);
+        m_ref.offset = detail::contents_offset(m_data, m_vctr);
     }
 
     // * Methods : container
@@ -355,13 +352,13 @@ public:
     {
         assert( false ); // TODO: Remove once this path has been tested
 
-        if ( empty() && !m_ref.is_null() )
+        if ( empty() && nullptr != m_vctr )
         {
             assert( false ); // TODO: Remove once this path has been tested
 
-            detail::free( m_dataIt, allocation_iterator() );
+            detail::free(m_vctr);
 
-            m_allocation = nullptr;
+            m_vctr       = nullptr;
             m_ref.offset = 0;
         }
         else if ( size() < capacity() )
@@ -370,9 +367,8 @@ public:
 
             const auto contents_size = static_cast<uint32_t>( sizeof(value_type) * m_ref->count );
 
-            auto allocIt = detail::reserve(m_dataIt, allocation_iterator(), contents_size);
-
-            update_for(allocIt);
+            m_vctr       = detail::reserve(m_data, m_vctr, contents_size);
+            m_ref.offset = detail::contents_offset(m_data, m_vctr);
         }
     }
 
@@ -419,7 +415,7 @@ public:
             reserve( (size() + 4) & ~3 );
         }
 
-        unchecked::contents<value_type>(m_allocation)[m_ref.count++] = value;
+        data()[m_ref.count++] = value;
     }
 
     void pop_back(void) noexcept
@@ -550,54 +546,21 @@ public:
 
 private:
 
-    // • Private Methods
-    //
-    void update_for(AtomIterator allocIt) noexcept
-    {
-        m_allocation = allocIt.get();
-        m_ref.offset = allocIt.offset() + atom_header_length;
-    }
-
-    AtomIterator allocation_iterator(void) noexcept
-    {
-        return { m_allocation, m_ref.offset - atom_header_length };
-    }
-
-private:
-
     // • Data members
     //
-    AtomIterator    m_dataIt;
-    vector_ref&     m_ref;
-    Atom*           m_allocation;
+    vector_ref& m_ref;
+    Atom*       m_data;
+    Atom*       m_vctr;
 };
 
-#else // if defined ( __METAL_VERSION__ )
-
 //===------------------------------------------------------------------------===
-//
-// • Vector utilities (Metal)
-//
+// • Utilities
 //===------------------------------------------------------------------------===
 
-template <TRIVIAL_LAYOUT Type_>
-const device Type_* contents(const device Atom* data, VectorRef<Type_> ref)
+template <TrivialLayout Type_>
+data::Vector<Type_> make_vector(VectorRef<Type_>& ref, Atom* data) noexcept(false)
 {
-    return reinterpret_cast<const device Type_*>( reinterpret_cast<const device uint8_t*>(data) + ref.offset );
+    return  { ref, data };
 }
 
-template <TRIVIAL_LAYOUT Type_>
-device Type_* contents(device Atom* data, VectorRef<Type_> ref)
-{
-    return reinterpret_cast<device Type_*>( reinterpret_cast<device uint8_t*>(data) + ref.offset );
-}
-
-template <TRIVIAL_LAYOUT Type_>
-constant Type_* contents(constant Atom* data, VectorRef<Type_> ref)
-{
-    return reinterpret_cast<constant Type_*>( reinterpret_cast<constant uint8_t*>(data) + ref.offset );
-}
-
-#endif
-
-} // namespace format
+} // namespace data

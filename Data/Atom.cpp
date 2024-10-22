@@ -17,13 +17,13 @@
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
 
-#include <Format/Atom.hpp>
+#include <Data/Atom.hpp>
 
 //===------------------------------------------------------------------------===
-// • namespace format
+// • namespace data
 //===------------------------------------------------------------------------===
 
-namespace format
+namespace data
 {
 
 //===------------------------------------------------------------------------===
@@ -32,27 +32,12 @@ namespace format
 //
 //===------------------------------------------------------------------------===
 
-bool valid_alignment(const Atom* atom) noexcept
+bool valid_data(const Atom* data) noexcept
 {
-    if (   !is_aligned(atom)
-        || !is_aligned(atom->length)
-        || !is_aligned(atom->previous)
-        || atom->length < atom_header_length )
-    {
-        return false;
-    }
-
-    return true;
-}
-
-bool valid_data(const Atom* data, uint32_t contents_length) noexcept
-{
-    if ( !is_aligned(data)
-        || contents_length < min_contents_length
+    if (   !is_aligned(data)
         || AtomID::data != data->identifier
-        || data->length < atom_header_length
         || !is_aligned(data->length)
-        || contents_length - atom_header_length < data->length
+        || data->length < atom_header_length
         || 0 != data->previous )
     {
         return false;
@@ -63,10 +48,22 @@ bool valid_data(const Atom* data, uint32_t contents_length) noexcept
 
 bool valid_end(const Atom* end) noexcept
 {
-    if ( !is_aligned(end)
+    if (   !is_aligned(end)
         || AtomID::end != end->identifier
         || atom_header_length != end->length
         || !is_aligned(end->previous) )
+    {
+        return false;
+    }
+
+    return true;
+}
+
+bool valid_alignment_and_length(const void* contents, uint32_t contents_length) noexcept
+{
+    if (   !is_aligned(contents)
+        || !is_aligned(contents_length)
+        || contents_length < min_contents_length )
     {
         return false;
     }
@@ -87,41 +84,37 @@ bool validate_layout(const void* contents, uint32_t contents_length) noexcept
     //
     const Atom* data = reinterpret_cast<const Atom*>(contents);
 
-    if ( AtomID::data != data->identifier
-        || !is_aligned(data->length)
-        || data->length < atom_header_length
-        || contents_length - atom_header_length < data->length
-        || 0 != data->previous )
+    if ( !valid_data(data) )
     {
         return false;
     }
 
     // • The last atom is 'end ', which has no content
     //
-    const auto end = unchecked::end(contents, contents_length);
+    const auto end = detail::offset_by(data, contents_length - atom_header_length);
 
-    if ( AtomID::end != end->identifier || !unchecked::empty(end) ) {
+    if ( AtomID::end != end->identifier || !detail::empty(end) ) {
         return false;
     }
 
     // • Validate each atom forward to 'end '
     //
-    const Atom* curr = unchecked::next(data);
+    const Atom* curr = detail::next(data);
     const Atom* prev = data;
 
     for ( auto end_distance = contents_length - data->length - end->length ;
           0 < end_distance ;
-          end_distance -= curr->length, prev = curr, curr = unchecked::next(curr) )
+          end_distance -= curr->length, prev = curr, curr = detail::next(curr) )
     {
         if ( !is_aligned(curr->length) || end_distance < curr->length ) {
             return false;
         }
 
-        if ( AtomID::allocation == curr->identifier )
+        if ( AtomID::vector == curr->identifier )
         {
             // • There shall be no zero-length vector atoms
             //
-            if ( unchecked::empty(curr) ) {
+            if ( detail::empty(curr) ) {
                 return false;
             }
         }
@@ -158,41 +151,49 @@ bool validate_layout(const void* contents, uint32_t contents_length) noexcept
 //
 //===------------------------------------------------------------------------===
 
-AtomIterator prepare_layout(void* contents, uint32_t data_contents_size, uint32_t contents_length) noexcept(false)
+Atom* format(void* buffer, uint32_t buffer_length, uint32_t data_contents_size) noexcept(false)
 {
     // • Validate alignment and minimum possible size
     //
-    if (   !is_aligned(contents)
-        || !is_aligned(contents_length)
-        || !is_aligned(data_contents_size)
-        || contents_length < 2*sizeof(Atom) + data_contents_size )
+    const auto aligned_data_contents_size = aligned_size(data_contents_size);
+
+    if (   !is_aligned(buffer)
+        || !is_aligned(buffer_length)
+        || buffer_length < aligned_data_contents_size + 2*sizeof(Atom) )
     {
         throw false;
     }
 
     // • Data
     //
-    auto data = static_cast<Atom*>(contents);
+    auto data = static_cast<Atom*>(buffer);
 
     *data = {
-        .length     = atom_header_length + data_contents_size,
+        .length     = atom_header_length + aligned_data_contents_size,
         .identifier = AtomID::data,
         0
     };
 
+    // • Zero-init the data contents
+    //
+    if ( 0 < aligned_data_contents_size )
+    {
+        std::memset( detail::contents<uint8_t>(data), 0, aligned_data_contents_size );
+    }
+
     // • End
     //
-    auto end_offset = contents_length - atom_header_length;
-    auto end        = unchecked::offset_by(contents, end_offset);
+    auto end_offset = buffer_length - atom_header_length;
+    auto end        = detail::offset_by(data, end_offset);
 
     if ( data->length < end_offset )
     {
         // • Free
         //
-        auto free = unchecked::next(data);
+        auto free = detail::next(data);
 
         *free = {
-            .length     = contents_length - data->length - atom_header_length,
+            .length     = buffer_length - data->length - atom_header_length,
             .identifier = AtomID::free,
             .previous   = data->length,
             0
@@ -204,8 +205,6 @@ AtomIterator prepare_layout(void* contents, uint32_t data_contents_size, uint32_
             .previous   = free->length,
             0
         };
-
-        return { data, 0 };
     }
     else
     {
@@ -215,9 +214,9 @@ AtomIterator prepare_layout(void* contents, uint32_t data_contents_size, uint32_
             .previous   = data->length,
             0
         };
-
-        return { data, 0 };
     }
+
+    return data;
 }
 
-} // namespace format
+} // namespace data
