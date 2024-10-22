@@ -247,31 +247,32 @@ Atom* end_atom(Type_* contents, uint32_t contents_length) noexcept(false)
 
 //===------------------------------------------------------------------------===
 //
-// • Contents
+// • Buffer formatting
 //
 //===------------------------------------------------------------------------===
 
 Atom* format( void* buffer, uint32_t buffer_length,
               uint32_t data_contents_size = 0u ) noexcept(false);
 
-/*
 template <TrivialLayout Data_>
-std::pair<Data_*,AtomIterator>
-prepare_resource_after(void* buffer, uint32_t buffer_length, const Data_& src_data) noexcept(false)
+std::pair<Atom*,Data_*>
+format_for_data(void* buffer, uint32_t buffer_length) noexcept(false)
 {
-    auto rsrcIt = prepare_resource( buffer, buffer_length, data::aligned_size<Data_>() );
-    auto data   = static_cast<Data_*>(buffer);
+    auto data_atom = format( buffer, buffer_length, data::aligned_size<Data_>() );
+    auto data      = static_cast<Data_*>(buffer);
+
+    return { data_atom, data };
+}
+
+template <TrivialLayout Data_>
+std::pair<Atom*,Data_*>
+format_with_data(void* buffer, uint32_t buffer_length, const Data_& src_data) noexcept(false)
+{
+    auto [data_atom, data] = format_for_data<Data_>(buffer, buffer_length);
 
     *data = src_data;
 
-    return { data, rsrcIt };
+    return { data_atom, data };
 }
-
-template <TrivialLayout Data_>
-constexpr uint32_t distance(const Data_* data, const AtomIterator& it) noexcept
-{
-    return data::distance( data, it.get() );
-}
-*/
 
 } // namespace data
